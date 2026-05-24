@@ -1,0 +1,67 @@
+---
+title: "Logistics Service Quality & Customer Risk Analysis"
+author: "Lâm Như Ngọc"
+date: "2026-05-24"
+output: html_document
+---
+
+## ĐỌC DATA
+
+```{r}
+library(tidyverse)
+library(lubridate) 
+library(janitor)
+library(scales)
+
+#choose.files()
+loads <- read_csv("C:\\Users\\Dell\\Downloads\\R\\project1\\loads.csv")%>% clean_names()
+trips <- read_csv("C:\\Users\\Dell\\Downloads\\R\\project1\\trips.csv")%>% clean_names()
+delivery_events <- read_csv("C:\\Users\\Dell\\Downloads\\R\\project1\\delivery_events.csv") %>% clean_names()
+routes <- read_csv("C:\\Users\\Dell\\Downloads\\R\\project1\\routes.csv")%>% clean_names()
+customers <- read_csv("C:\\Users\\Dell\\Downloads\\R\\project1\\customers.csv")%>% clean_names()
+
+```
+
+
+## Join bảng
+loads: load_id,customer_id,route_id  
+trips: trip_id, load_id  
+delivery_events: event_id, load_id, trip_id  
+customers: customer_id  
+routes: route_id
+
+```{r}
+logistics_master <- delivery_events %>%
+  filter(event_type == "Delivery") %>%
+  left_join(trips, by = c("trip_id", "load_id")) %>%  
+  left_join(loads, by = "load_id") %>% 
+  left_join(routes, by = "route_id") %>%
+  left_join(customers, by = "customer_id")
+```
+
+## TẠO BIẾN
+
+```{r}
+logistics_clean <- logistics_master %>%
+  mutate(
+    delay_minutes = as.numeric(difftime(actual_datetime, scheduled_datetime, units = "mins")),
+    is_late = if_else(delay_minutes > 15, 1, 0),
+    delay_severity = case_when(
+      delay_minutes <= 15 ~ "On Time",
+      delay_minutes <= 120 ~ "Minor Delay",
+      delay_minutes <= 360 ~ "Moderate Delay",
+      TRUE ~ "Severe Delay"),
+    detention_hours = detention_minutes / 60,  
+    rev_per_mile = if_else(
+      typical_distance_miles > 0,
+      revenue / typical_distance_miles,
+      NA_real_)
+  ) %>%
+  filter(delay_minutes >= -120 & delay_minutes <= 1440)
+
+
+glimpse(logistics_clean)
+summary(logistics_clean$delay_minutes)
+```
+
+
